@@ -45,6 +45,7 @@ publishing {
         thirdPartPlatform(MavenPublication){
             from components.javaPlatform
             artifactId = "java-dependencies"
+            version = project.findProperty('PUBLISH_VERSION') ?: project.version
         }
     }
 
