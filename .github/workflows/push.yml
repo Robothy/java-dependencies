@@ -1,0 +1,46 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish-to-maven:
+    runs-on: ubuntu-20.04
+    env:
+      GITHUB_USERNAME: Robothy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Publish
+        id: publish
+        run: |
+          pwd
+          ls -l
+          git log --pretty=format:"%H - %an, %aI : %s" -5
+          chmod +x gradlew
+          export PUBLISH_VERSION=`awk -F '=' '$1=="version" {print substr($2, 0, index($2, "-")-1)}' gradle.properties`
+          echo ''
+          echo ::set-output name=PUBLISH_VERSION::$(echo $PUBLISH_VERSION)
+          echo publishing version $PUBLISH_VERSION
+          ./gradlew publish -PGITHUB_TOKEN=${{secrets.PACKAGES_TOKEN}}
+          export NEXT_VERSION=`echo $PUBLISH_VERSION | awk '{print substr($1, 0, match($1, /\.[0-9]*$/)) substr($1, match($1, /\.[0-9]*$/)+1)+1"-SNAPSHOT"}'`
+          echo next version $NEXT_VERSION
+          awk -F '=' -v next_version="$NEXT_VERSION" '{ if ($1 == "version") print $1"="next_version"-SNAPSHOT"; else print $1"="$2}' gradle.properties > gradle.properties.tmp
+          mv gradle.properties.tmp gradle.properties
+          cat gradle.properties
+
+      - name: Commit next version
+        run: |
+          git config user.name "Github Actions"
+          git config user.email "bot@robothy.com"
+          git branch
+          git remote -v
+          git checkout -b main
+          git remote add origin git@github.com/Robothy:java-dependencies.git
+          git remote -v
+          git add ./gradle.properties
+          git commit -m '${{steps.publish.outputs.PUBLISH_VERSION}} released.'
+          git push origin main
